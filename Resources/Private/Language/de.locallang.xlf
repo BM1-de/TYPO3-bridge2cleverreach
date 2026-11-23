@@ -11,6 +11,10 @@
 				<source>Configuration Error</source>
 				<target>Konfiguration Fehler</target>
 			</trans-unit>
+			<trans-unit id="error.subscribeGeneric">
+				<source>Your subscription could not be processed. Please try again later.</source>
+				<target>Ihre Anmeldung konnte gerade nicht verarbeitet werden. Bitte versuchen Sie es später erneut.</target>
+			</trans-unit>
 			<trans-unit id="error.turnstileMissing">
 				<source>Spam protection is enabled, but EXT:turnstile is not installed.</source>
 				<target>Der Spamschutz ist aktiviert, aber EXT:turnstile ist nicht installiert.</target>
