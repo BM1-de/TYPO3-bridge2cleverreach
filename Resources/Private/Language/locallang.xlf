@@ -15,6 +15,9 @@
 			<trans-unit id="error.turnstileMissing">
 				<source>Spam protection is enabled, but EXT:turnstile is not installed.</source>
 			</trans-unit>
+			<trans-unit id="error.privacyConsent">
+				<source>Please confirm the privacy notice.</source>
+			</trans-unit>
 			<trans-unit id="error.authorization">
 				<source>Authorization error, check your authorization data</source>
 			</trans-unit>

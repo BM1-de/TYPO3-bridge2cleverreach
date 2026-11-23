@@ -48,11 +48,16 @@ class CleverreachController extends ActionController implements LoggerAwareInter
             $email = $requestData['newsletter-form-email'] ?? '';
             $groups = $this->resolveTargetGroups($selectableGroups, (string)($requestData['newsletter-group'] ?? ''));
             $turnstileError = $this->getTurnstileError();
+            $globalAttributes = $this->buildGlobalAttributes($requestData, $name, $surname);
+            $attributes = $this->buildConsentAttributes($requestData);
 
             if ($turnstileError !== null) {
                 $response = ['success' => false, 'message' => $turnstileError];
             } elseif (empty($email)) {
                 $response = ['success' => false, 'message' => LocalizationUtility::translate('error.noData', 'bridge2cleverreach')];
+            } elseif ($attributes === null) {
+                $response = ['success' => false, 'message' => LocalizationUtility::translate('error.privacyConsent', 'bridge2cleverreach')
+                    ?? 'Please confirm the privacy notice.'];
             } elseif (empty($siteCredentials['clientId']) || empty($siteCredentials['clientSecret']) || $groups === []) {
                 $response = ['success' => false, 'message' => LocalizationUtility::translate('error.configuration', 'bridge2cleverreach')];
             } else {
@@ -62,8 +67,8 @@ class CleverreachController extends ActionController implements LoggerAwareInter
                 } else {
                     $response = $this->subscribeToGroups(
                         $email,
-                        $name,
-                        $surname,
+                        $globalAttributes,
+                        $attributes,
                         $groups,
                         $access['access_token']
                     );
@@ -111,6 +116,46 @@ class CleverreachController extends ActionController implements LoggerAwareInter
         }
 
         return $result->getFirstError()->getMessage();
+    }
+
+    /**
+     * Global CleverReach attributes from the form: first and last name and, if the
+     * form sends "newsletter-form-salutation", the salutation.
+     *
+     * @param array<string, mixed> $requestData
+     * @return array<string, string>
+     */
+    protected function buildGlobalAttributes(array $requestData, string $name, string $surname): array
+    {
+        $globalAttributes = ['firstname' => $name, 'lastname' => $surname];
+        $salutation = trim((string)($requestData['newsletter-form-salutation'] ?? ''));
+        if ($salutation !== '') {
+            $globalAttributes['salutation'] = $salutation;
+        }
+
+        return $globalAttributes;
+    }
+
+    /**
+     * Group attribute that records the privacy consent, e.g. "datenschutz" = "akzeptiert".
+     * Configured via TypoScript settings.privacyCheckbox.attribute.name / .value. When
+     * an attribute name is configured, the consent ("newsletter-form-privacy") is also
+     * required on the server, not only by the browser.
+     *
+     * @param array<string, mixed> $requestData
+     * @return array<string, string>|null Attributes, or null if the required consent is missing
+     */
+    protected function buildConsentAttributes(array $requestData): ?array
+    {
+        $attributeName = trim((string)($this->settings['privacyCheckbox']['attribute']['name'] ?? ''));
+        if ($attributeName === '') {
+            return [];
+        }
+        if (empty($requestData['newsletter-form-privacy'])) {
+            return null;
+        }
+
+        return [$attributeName => (string)($this->settings['privacyCheckbox']['attribute']['value'] ?? '1')];
     }
 
     /**
@@ -315,8 +360,8 @@ class CleverreachController extends ActionController implements LoggerAwareInter
      */
     private function subscribeToGroups(
         string $email,
-        string $name,
-        string $surname,
+        array $globalAttributes,
+        array $attributes,
         array $groups,
         string $token
     ): array {
@@ -328,8 +373,8 @@ class CleverreachController extends ActionController implements LoggerAwareInter
                 $email,
                 $group['groupId'],
                 false,
-                [],
-                ['firstname' => $name, 'lastname' => $surname],
+                $attributes,
+                $globalAttributes,
                 $token
             );
             if ($subscribeResult['error']) {
@@ -350,7 +395,7 @@ class CleverreachController extends ActionController implements LoggerAwareInter
             $doiResult = $this->apiManager->triggerDoubleOptInEmail(
                 $email,
                 $group['formId'],
-                ['firstname' => $name, 'lastname' => $surname],
+                $globalAttributes,
                 $token
             );
             if ($doiResult['error']) {
